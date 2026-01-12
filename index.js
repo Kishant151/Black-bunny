@@ -4,9 +4,10 @@ const { basePath } = 'http://localhost:4000/public'
 
 const getHashKey = (argsData, encryptedData) => {
   const { CurrencyCode, Amount, ReturnURL, ApprovalURL, UnApprovalURL } = argsData
-  const { ServiceId, Config } = encryptedData.eGHL
+  const { ServiceId, Password } = encryptedData.eGHL
 
   const orderNumber = crypto.randomBytes(64).toString('hex').slice(0, 20)
+  const password = Password
   const serviceID = ServiceId
   const paymentID = crypto
     .randomBytes(64)
@@ -25,7 +26,7 @@ const getHashKey = (argsData, encryptedData) => {
   const token = ''
   const recurringCriteria = ''
 
-  const hashKey = `${Config}${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
+  const hashKey = `${password}${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
   return {
     hashKey,
     orderNumber,
@@ -40,10 +41,11 @@ const getHashKey = (argsData, encryptedData) => {
 }
 
 const getHash = (hashKey) => {
-  let hash = crypto.createHash('sha256')
-  data = hash.update(hashKey, 'utf8')
-  let hashValue = data.digest('hex')
-  return hashValue
+  // let hash = crypto.createHash('sha256')
+  const test = bcrypt.hashSync(hashKey, '10')
+  // data = hash.update(hashKey, 'utf8')
+  // let hashValue = data.digest('hex')
+  return test
 }
 
 const generateEghlHash = (argsData, encryptedData) => {
@@ -53,4 +55,5 @@ const generateEghlHash = (argsData, encryptedData) => {
 }
 
 module.exports = generateEghlHash
+
 

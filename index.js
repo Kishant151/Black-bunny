@@ -8,7 +8,6 @@ const getHashKey = (argsData, encryptedData) => {
   const merchantSecret = encryptedData.eGHL.Password
 
   const orderNumber = crypto.randomBytes(64).toString('hex').slice(0, 20)
-  const password = Password
   const serviceID = ServiceId
   const paymentID = crypto
     .randomBytes(64)
@@ -27,7 +26,7 @@ const getHashKey = (argsData, encryptedData) => {
   const token = ''
   const recurringCriteria = ''
 
-  const hashKey = `${password}${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
+  const hashKey = `${merchantSecret}${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
   return {
     hashKey,
     orderNumber,

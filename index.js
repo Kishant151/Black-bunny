@@ -3,17 +3,12 @@ const { EGHL_PAGE_TIMEOUT } = '780'
 const { basePath } = 'http://localhost:4000/public'
 const { decryptText } = require('../../helpers/encryptDecrypt')
 
-const crypto = require('crypto')
-const { EGHL_PAGE_TIMEOUT } = require('../../helpers/constants')
-const { basePath } = require('../../config/config')
-const { decryptText, encryptText } = require('../../helpers/encryptDecrypt')
-
-const getHashKey = async (argsData, encryptedData) => {
+const getHashKey = (argsData, encryptedData) => {
   const { CurrencyCode, Amount, ReturnURL, ApprovalURL, UnApprovalURL } = argsData
   const { ServiceId, Password } = encryptedData.eGHL
 
   const orderNumber = crypto.randomBytes(64).toString('hex').slice(0, 20)
-  const password = await encryptText(password)
+  const password = Password
   const serviceID = ServiceId
   const paymentID = crypto
     .randomBytes(64)
@@ -32,10 +27,9 @@ const getHashKey = async (argsData, encryptedData) => {
   const token = ''
   const recurringCriteria = ''
 
-  const hashKey = `${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
+  const hashKey = `${password}${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
   return {
     hashKey,
-    password,
     orderNumber,
     paymentID,
     pageTimeout,
@@ -47,10 +41,8 @@ const getHashKey = async (argsData, encryptedData) => {
   }
 }
 
-const getHash = async (hashKey, password) => {
+const getHash = (hashKey) => {
   let hash = crypto.createHash('sha256')
-  const decryptedPassword = await decryptText(password)
-  hashKey = `${decryptedPassword}${hashKey}`
   data = hash.update(hashKey, 'utf8')
   let hashValue = data.digest('hex')
   return hashValue
@@ -58,8 +50,9 @@ const getHash = async (hashKey, password) => {
 
 const generateEghlHash = (argsData, encryptedData) => {
   const eghlData = getHashKey(argsData, encryptedData)
-  const hash = getHash(eghlData.hashKey, eghlData.Password)
+  const hash = getHash(eghlData.hashKey)
   return { hash, eghlData }
 }
 
 module.exports = generateEghlHash
+

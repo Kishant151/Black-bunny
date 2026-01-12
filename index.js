@@ -3,12 +3,12 @@ const { EGHL_PAGE_TIMEOUT } = '780'
 const { basePath } = 'http://localhost:4000/public'
 const { decryptText } = require('../../helpers/encryptDecrypt')
 
-const getHashKey = (argsData, encryptedData) => {
+const getHashKey = async (argsData, encryptedData) => {
   const { CurrencyCode, Amount, ReturnURL, ApprovalURL, UnApprovalURL } = argsData
   const { ServiceId, Password } = encryptedData.eGHL
 
   const orderNumber = crypto.randomBytes(64).toString('hex').slice(0, 20)
-  const password = Password
+  const password = await encryptText(password)
   const serviceID = ServiceId
   const paymentID = crypto
     .randomBytes(64)
@@ -27,9 +27,10 @@ const getHashKey = (argsData, encryptedData) => {
   const token = ''
   const recurringCriteria = ''
 
-  const hashKey = `${password}${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
+  const hashKey = `${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
   return {
     hashKey,
+    password,
     orderNumber,
     paymentID,
     pageTimeout,
@@ -41,8 +42,10 @@ const getHashKey = (argsData, encryptedData) => {
   }
 }
 
-const getHash = (hashKey) => {
+const getHash = async (hashKey, password) => {
   let hash = crypto.createHash('sha256')
+  const decryptedPassword = await decryptText(password)
+  hashKey = `${decryptedPassword}${hashKey}`
   data = hash.update(hashKey, 'utf8')
   let hashValue = data.digest('hex')
   return hashValue
@@ -50,9 +53,10 @@ const getHash = (hashKey) => {
 
 const generateEghlHash = (argsData, encryptedData) => {
   const eghlData = getHashKey(argsData, encryptedData)
-  const hash = getHash(eghlData.hashKey)
+  const hash = getHash(eghlData.hashKey, eghlData.Password)
   return { hash, eghlData }
 }
 
 module.exports = generateEghlHash
+
 

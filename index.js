@@ -53,7 +53,7 @@ const getHash = async (hashKey, password) => {
 
 const generateEghlHash = (argsData, encryptedData) => {
   const eghlData = getHashKey(argsData, encryptedData)
-  const hash = getHash(eghlData.hashKey, eghlData.Password)
+  const hash = getHash(eghlData.hashKey, eghlData.password)
   return { hash, eghlData }
 }
 

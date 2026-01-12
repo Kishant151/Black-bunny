@@ -3,11 +3,17 @@ const { EGHL_PAGE_TIMEOUT } = '780'
 const { basePath } = 'http://localhost:4000/public'
 const { decryptText } = require('../../helpers/encryptDecrypt')
 
-const getHashKey = (argsData, encryptedData) => {
+const crypto = require('crypto')
+const { EGHL_PAGE_TIMEOUT } = require('../../helpers/constants')
+const { basePath } = require('../../config/config')
+const { decryptText, encryptText } = require('../../helpers/encryptDecrypt')
+
+const getHashKey = async (argsData, encryptedData) => {
   const { CurrencyCode, Amount, ReturnURL, ApprovalURL, UnApprovalURL } = argsData
   const { ServiceId, Password } = encryptedData.eGHL
 
   const orderNumber = crypto.randomBytes(64).toString('hex').slice(0, 20)
+  const password = await encryptText(password)
   const serviceID = ServiceId
   const paymentID = crypto
     .randomBytes(64)
@@ -29,7 +35,7 @@ const getHashKey = (argsData, encryptedData) => {
   const hashKey = `${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
   return {
     hashKey,
-    Password,
+    password,
     orderNumber,
     paymentID,
     pageTimeout,
@@ -57,8 +63,3 @@ const generateEghlHash = (argsData, encryptedData) => {
 }
 
 module.exports = generateEghlHash
-
-
-
-
-

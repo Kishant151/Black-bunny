@@ -1,10 +1,14 @@
 const crypto = require('crypto')
 const { EGHL_PAGE_TIMEOUT } = '780'
 const { basePath } = 'http://localhost:4000/public'
+const { decryptText } = require('../../helpers/encryptDecrypt')
 
 const getHashKey = (argsData, encryptedData) => {
   const { CurrencyCode, Amount, ReturnURL, ApprovalURL, UnApprovalURL } = argsData
   const { ServiceId, Password } = encryptedData.eGHL
+
+  console.log("Password======",Password);
+  
 
   const orderNumber = crypto.randomBytes(64).toString('hex').slice(0, 20)
   const serviceID = ServiceId
@@ -26,6 +30,8 @@ const getHashKey = (argsData, encryptedData) => {
   const recurringCriteria = ''
 
   const hashKey = `${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
+  console.log("hashKey======",hashKey);
+  
   return {
     hashKey,
     Password,
@@ -40,11 +46,13 @@ const getHashKey = (argsData, encryptedData) => {
   }
 }
 
-const getHash = async (hashKey, merchantSecret) => {
+const getHash = async (hashKey, password) => {
   let hash = crypto.createHash('sha256')
-  const hashSharedValues = await decryptText(merchantSecret)
-  const finalHashKey = `${hashKey}${hashSharedValues}`
-  data = hash.update(finalHashKey, 'utf8')
+  const decryptedPassword = await decryptText(password)
+  console.log("decryptedPassword======",decryptedPassword);
+  hashKey = `${decryptedPassword}${hashKey}`
+  console.log("hashKey======",hashKey);
+  data = hash.update(hashKey, 'utf8')
   let hashValue = data.digest('hex')
   return hashValue
 }
@@ -56,6 +64,7 @@ const generateEghlHash = (argsData, encryptedData) => {
 }
 
 module.exports = generateEghlHash
+
 
 
 

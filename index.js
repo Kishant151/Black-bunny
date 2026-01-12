@@ -1,85 +1,73 @@
-const crypto = require('crypto')
-const EGHL_PAGE_TIMEOUT = '780'
-const basePath = 'http://localhost:4000/public'
-
-const buildSignatureData = (inputData, decryptedData) => {
-  const {
-    CurrencyCode: inputCurrency,
-    Amount: inputAmount,
-    ReturnURL: returnUrl,
-    ApprovalURL: approvalUrl,
-    UnApprovalURL: rejectionUrl
-  } = inputData
-
-  const {
-    ServiceId: serviceIdentifier,
-    Password: secretKey
-  } = decryptedData.eGHL
-
-  const orderReference = crypto.randomBytes(64).toString('hex').slice(0, 20)
-  const transactionReference = crypto
-    .randomBytes(64)
-    .toString('hex')
-    .slice(0, 20)
-    .toUpperCase()
-
-  const callbackUrl = `${basePath}/eghl/response`
-  const formattedAmount = parseFloat(inputAmount).toFixed(2)
-  const timeout = EGHL_PAGE_TIMEOUT
-
-  const customerIp = ''
-  const cardNumber = ''
-  const tokenValue = ''
-  const recurringRule = ''
-
-  const signaturePayload =
-    `${secretKey}` +
-    `${serviceIdentifier}` +
-    `${transactionReference}` +
-    `${returnUrl}` +
-    `${approvalUrl}` +
-    `${rejectionUrl}` +
-    `${callbackUrl}` +
-    `${formattedAmount}` +
-    `${inputCurrency}` +
-    `${customerIp}` +
-    `${timeout}` +
-    `${cardNumber}` +
-    `${tokenValue}` +
-    `${recurringRule}`
-
-  return {
-    signaturePayload,
-    orderReference,
-    transactionReference,
-    timeout,
-    totalAmount: formattedAmount,
-    callbackUrl,
-    returnUrl,
-    approvalUrl,
-    rejectionUrl,
-    secretKey
-  }
+Versions.getVersionsInformation = ({ status, pattern, sort, pageNumber, limit, sortKey, customerIds, collection }) => {
+  return new Promise((resolve, reject) => {
+    const condition = { IsDeleted: false }
+    const searchCondition = {}
+    sort = sort === 'dsc' ? -1 : 1
+    sortKey = sortKey || 'VersionNumber'
+    const skips = limit * (pageNumber - 1)
+    if (customerIds && customerIds.length > 0) {
+      customerIds = customerIds.map(custId => {
+        return ObjectId.createFromHexString(custId)
+      })
+      Object.assign(condition, { CustomerID: { $in: customerIds } })
+    }
+    if (pattern) {
+      Object.assign(searchCondition, {
+        $or: [
+          { VersionNumber: new RegExp(pattern, 'i') },
+          { 'CustomerData.CustomerName': new RegExp(pattern, 'i') }
+        ]
+      })
+    }
+    if (status) {
+      status = status === true
+      Object.assign(condition, { IsActive: status })
+    }
+    const query = [
+      {
+        $match: condition
+      },
+      {
+        $lookup: {
+          from: 'Customers',
+          localField: 'CustomerID',
+          foreignField: '_id',
+          pipeline: [
+            { $project: { _id: 1, CustomerName: 1 } }
+          ],
+          as: 'CustomerData'
+        }
+      },
+      {
+        $unwind: {
+          path: '$CustomerData',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $match: searchCondition
+      }
+    ]
+    let totalQuery = query
+    totalQuery = totalQuery.concat({ $count: 'total' })
+    Promise.props({
+      version: pageNumber && limit
+        ? collection.aggregate(query, { collation: { locale: 'en' } })
+          .sort({ [sortKey]: sort })
+          .skip(skips)
+          .limit(limit).toArray()
+        : collection.aggregate(query, { collation: { locale: 'en' } })
+          .sort({ [sortKey]: sort }).toArray(),
+      total: collection.aggregate(totalQuery).toArray()
+    }).then(results => {
+      results.total = results.total[0] &&
+            results.total[0].total
+        ? results.total[0].total
+        : 0
+      resolve(results)
+    }).catch(err => {
+      console.log(err)
+      reject(err)
+    })
+  })
 }
-
-const computeHmacHash = (payload, secretKey) => {
-  return crypto
-    .createHmac('sha256', secretKey)
-    .update(payload, 'utf8')
-    .digest('hex')
-}
-
-const createEghlSignature = (inputData, decryptedData) => {
-  const signatureData = buildSignatureData(inputData, decryptedData)
-  const hashValue = computeHmacHash(
-    signatureData.signaturePayload,
-    signatureData.secretKey
-  )
-
-  delete signatureData.secretKey
-
-  return { hash: hashValue, eghlData: signatureData }
-}
-
-module.exports = createEghlSignature
-

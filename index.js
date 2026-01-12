@@ -2,77 +2,84 @@ const crypto = require('crypto')
 const EGHL_PAGE_TIMEOUT = '780'
 const basePath = 'http://localhost:4000/public'
 
-const buildSignaturePayload = (inputParams, decryptedPayload) => {
+const buildSignatureData = (inputData, decryptedData) => {
   const {
-    CurrencyCode: currencyCodeInput,
-    Amount: amountInput,
-    ReturnURL: returnUrlInput,
-    ApprovalURL: approvalUrlInput,
-    UnApprovalURL: unApprovalUrlInput
-  } = inputParams
+    CurrencyCode: inputCurrency,
+    Amount: inputAmount,
+    ReturnURL: returnUrl,
+    ApprovalURL: approvalUrl,
+    UnApprovalURL: rejectionUrl
+  } = inputData
 
   const {
     ServiceId: serviceIdentifier,
     Password: secretKey
-  } = decryptedPayload.eGHL
+  } = decryptedData.eGHL
 
   const orderReference = crypto.randomBytes(64).toString('hex').slice(0, 20)
-
-  const transactionIdentifier = crypto
+  const transactionReference = crypto
     .randomBytes(64)
     .toString('hex')
     .slice(0, 20)
     .toUpperCase()
 
   const callbackUrl = `${basePath}/eghl/response`
-  const formattedAmount = parseFloat(amountInput).toFixed(2)
+  const formattedAmount = parseFloat(inputAmount).toFixed(2)
   const timeout = EGHL_PAGE_TIMEOUT
 
   const customerIp = ''
   const cardNumber = ''
   const tokenValue = ''
-  const recurringCondition = ''
+  const recurringRule = ''
 
   const signaturePayload =
     `${secretKey}` +
     `${serviceIdentifier}` +
-    `${transactionIdentifier}` +
-    `${returnUrlInput}` +
-    `${approvalUrlInput}` +
-    `${unApprovalUrlInput}` +
+    `${transactionReference}` +
+    `${returnUrl}` +
+    `${approvalUrl}` +
+    `${rejectionUrl}` +
     `${callbackUrl}` +
     `${formattedAmount}` +
-    `${currencyCodeInput}` +
+    `${inputCurrency}` +
     `${customerIp}` +
     `${timeout}` +
     `${cardNumber}` +
     `${tokenValue}` +
-    `${recurringCondition}`
+    `${recurringRule}`
 
   return {
     signaturePayload,
     orderReference,
-    paymentReference: transactionIdentifier,
+    transactionReference,
     timeout,
     totalAmount: formattedAmount,
     callbackUrl,
-    returnUrl: returnUrlInput,
-    approvalUrl: approvalUrlInput,
-    unApprovalUrl: unApprovalUrlInput
+    returnUrl,
+    approvalUrl,
+    rejectionUrl,
+    secretKey
   }
 }
 
-const generateSha256Hash = (payload) => {
-  const hashInstance = crypto.createHash('sha256')
-  const updatedHash = hashInstance.update(payload, 'utf8')
-  const hashResult = updatedHash.digest('hex')
-  return hashResult
+const computeHmacHash = (payload, secretKey) => {
+  return crypto
+    .createHmac('sha256', secretKey)
+    .update(payload, 'utf8')
+    .digest('hex')
 }
 
-const createEghlHash = (inputParams, decryptedPayload) => {
-  const paymentData = buildSignaturePayload(inputParams, decryptedPayload)
-  const hashValue = generateSha256Hash(paymentData.signaturePayload)
-  return { hash: hashValue, eghlData: paymentData }
+const createEghlSignature = (inputData, decryptedData) => {
+  const signatureData = buildSignatureData(inputData, decryptedData)
+  const hashValue = computeHmacHash(
+    signatureData.signaturePayload,
+    signatureData.secretKey
+  )
+
+  delete signatureData.secretKey
+
+  return { hash: hashValue, eghlData: signatureData }
 }
 
-module.exports = createEghlHash
+module.exports = createEghlSignature
+

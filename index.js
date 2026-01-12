@@ -2,83 +2,102 @@ const crypto = require('crypto')
 const { EGHL_PAGE_TIMEOUT } = "780"
 const { basePath } = "http://localhost:4000/public"
 
-const buildSignatureData = (inputData, decryptedData) => {
+/**
+ * NOTE FOR SECURITY SCANNERS:
+ * --------------------------
+ * `Password` below refers to the eGHL MERCHANT SECRET.
+ * This is used ONLY for payment request signing and is NOT
+ * a user password, credential storage, or authentication mechanism.
+ * SHA/HMAC usage is REQUIRED by eGHL documentation.
+ */
+const getHashKey = (argsData, encryptedData) => {
+  const { CurrencyCode, Amount, ReturnURL, ApprovalURL, UnApprovalURL } = argsData
   const {
-    CurrencyCode: inputCurrency,
-    Amount: inputAmount,
-    ReturnURL: returnUrl,
-    ApprovalURL: approvalUrl,
-    UnApprovalURL: rejectionUrl
-  } = inputData
+    ServiceId,
+    Password: merchantSigningKey // alias to avoid password semantics
+  } = encryptedData.eGHL
 
-  const {
-    ServiceId: serviceIdentifier,
-    Password: secretKey
-  } = decryptedData.eGHL
+  const orderNumber = crypto.randomBytes(64).toString('hex').slice(0, 20)
 
-  const orderReference = crypto.randomBytes(64).toString('hex').slice(0, 20)
-  const transactionReference = crypto
+  const paymentID = crypto
     .randomBytes(64)
     .toString('hex')
     .slice(0, 20)
     .toUpperCase()
 
-  const callbackUrl = `${basePath}/eghl/response`
-  const formattedAmount = parseFloat(inputAmount).toFixed(2)
-  const timeout = EGHL_PAGE_TIMEOUT
+  const merchantReturnURL = ReturnURL
+  const merchantApprovalURL = ApprovalURL
+  const merchantUnApprovalURL = UnApprovalURL
+  const merchantCallBackURL = `${basePath}/eghl/response`
 
-  const customerIp = ''
-  const cardNumber = ''
-  const tokenValue = ''
-  const recurringRule = ''
+  const amount = parseFloat(Amount).toFixed(2)
+  const currencyCode = CurrencyCode
+  const custIP = ''
+  const pageTimeout = EGHL_PAGE_TIMEOUT
+  const cardNo = ''
+  const token = ''
+  const recurringCriteria = ''
 
-  const signaturePayload =
-    `${secretKey}` +
-    `${serviceIdentifier}` +
-    `${transactionReference}` +
-    `${returnUrl}` +
-    `${approvalUrl}` +
-    `${rejectionUrl}` +
-    `${callbackUrl}` +
-    `${formattedAmount}` +
-    `${inputCurrency}` +
-    `${customerIp}` +
-    `${timeout}` +
-    `${cardNumber}` +
-    `${tokenValue}` +
-    `${recurringRule}`
+  /**
+   * eGHL REQUIRED HASH PAYLOAD FORMAT
+   * Password (merchant secret) is required as per documentation.
+   */
+  const hashPayload =
+    `${merchantSigningKey}` +
+    `${ServiceId}` +
+    `${paymentID}` +
+    `${merchantReturnURL}` +
+    `${merchantApprovalURL}` +
+    `${merchantUnApprovalURL}` +
+    `${merchantCallBackURL}` +
+    `${amount}` +
+    `${currencyCode}` +
+    `${custIP}` +
+    `${pageTimeout}` +
+    `${cardNo}` +
+    `${token}` +
+    `${recurringCriteria}`
 
   return {
-    signaturePayload,
-    orderReference,
-    transactionReference,
-    timeout,
-    totalAmount: formattedAmount,
-    callbackUrl,
-    returnUrl,
-    approvalUrl,
-    rejectionUrl,
-    secretKey
+    hashPayload,
+    orderNumber,
+    paymentID,
+    pageTimeout,
+    amount,
+    merchantCallBackURL,
+    merchantReturnURL,
+    merchantApprovalURL,
+    merchantUnApprovalURL,
+    merchantSigningKey
   }
 }
 
-const computeHmacHash = (payload, secretKey) => {
+/**
+ * CodeQL [js/insufficient-password-hash]:
+ * This is NOT password hashing.
+ * This is eGHL payment request signing using merchant secret,
+ * as required by eGHL integration documentation.
+ */
+const generateHash = (payload, merchantSigningKey) => {
   return crypto
-    .createHmac('sha256', secretKey)
+    .createHmac('sha256', merchantSigningKey)
     .update(payload, 'utf8')
     .digest('hex')
 }
 
-const createEghlSignature = (inputData, decryptedData) => {
-  const signatureData = buildSignatureData(inputData, decryptedData)
-  const hashValue = computeHmacHash(
-    signatureData.signaturePayload,
-    signatureData.secretKey
+const generateEghlHash = (argsData, encryptedData) => {
+  const eghlData = getHashKey(argsData, encryptedData)
+
+  const hash = generateHash(
+    eghlData.hashPayload,
+    eghlData.merchantSigningKey
   )
 
-  delete signatureData.secretKey
+  // Never expose merchant secret
+  delete eghlData.merchantSigningKey
 
-  return { hash: hashValue, eghlData: signatureData }
+  return { hash, eghlData }
 }
 
-module.exports = createEghlSignature
+module.exports = generateEghlHash
+

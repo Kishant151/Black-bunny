@@ -8,7 +8,7 @@ const getHashKey = async (argsData, encryptedData) => {
   const { ServiceId, Password } = encryptedData.eGHL
 
   const orderNumber = crypto.randomBytes(64).toString('hex').slice(0, 20)
-  const password = await encryptText(password)
+  const password = await encryptText(Password)
   const serviceID = ServiceId
   const paymentID = crypto
     .randomBytes(64)
@@ -58,5 +58,4 @@ const generateEghlHash = (argsData, encryptedData) => {
 }
 
 module.exports = generateEghlHash
-
 

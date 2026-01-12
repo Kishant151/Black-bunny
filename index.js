@@ -7,9 +7,6 @@ const getHashKey = (argsData, encryptedData) => {
   const { CurrencyCode, Amount, ReturnURL, ApprovalURL, UnApprovalURL } = argsData
   const { ServiceId, Password } = encryptedData.eGHL
 
-  console.log("Password======",Password);
-  
-
   const orderNumber = crypto.randomBytes(64).toString('hex').slice(0, 20)
   const serviceID = ServiceId
   const paymentID = crypto
@@ -30,8 +27,6 @@ const getHashKey = (argsData, encryptedData) => {
   const recurringCriteria = ''
 
   const hashKey = `${serviceID}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
-  console.log("hashKey======",hashKey);
-  
   return {
     hashKey,
     Password,
@@ -49,9 +44,7 @@ const getHashKey = (argsData, encryptedData) => {
 const getHash = async (hashKey, password) => {
   let hash = crypto.createHash('sha256')
   const decryptedPassword = await decryptText(password)
-  console.log("decryptedPassword======",decryptedPassword);
   hashKey = `${decryptedPassword}${hashKey}`
-  console.log("hashKey======",hashKey);
   data = hash.update(hashKey, 'utf8')
   let hashValue = data.digest('hex')
   return hashValue

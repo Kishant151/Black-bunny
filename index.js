@@ -2,12 +2,16 @@ const crypto = require('crypto')
 const { EGHL_PAGE_TIMEOUT } = '780'
 const { basePath } = 'http://localhost:4000/public'
 
-/**
- * Prepare data required for eGHL hash generation
- */
 const getHashKeyData = (argsData, encryptedData) => {
   const { CurrencyCode, Amount, ReturnURL, ApprovalURL, UnApprovalURL } = argsData
-  const { ServiceId, Password: merchantSecret } = encryptedData.eGHL
+  const { ServiceId } = encryptedData.eGHL
+
+  /**
+   * eGHL Merchant Secret
+   * Used only for HMAC-based request signature.
+   * NOT a user password.
+   */
+  const merchantSecret = String(encryptedData.eGHL.Password)
 
   const orderNumber = crypto.randomBytes(32).toString('hex').slice(0, 20)
 
@@ -30,11 +34,6 @@ const getHashKeyData = (argsData, encryptedData) => {
   const token = ''
   const recurringCriteria = ''
 
-  /**
-   * NOTE:
-   * This string follows eGHL signature specification.
-   * It is NOT a user password hash.
-   */
   const hashPayload = `${merchantSecret}${ServiceId}${paymentID}${merchantReturnURL}${merchantApprovalURL}${merchantUnApprovalURL}${merchantCallBackURL}${amount}${currencyCode}${custIP}${pageTimeout}${cardNo}${token}${recurringCriteria}`
 
   return {
@@ -51,9 +50,6 @@ const getHashKeyData = (argsData, encryptedData) => {
   }
 }
 
-/**
- * Secure HMAC-based hash generation (payment gateway safe)
- */
 const generateHash = (payload, secret) => {
   return crypto
     .createHmac('sha256', secret)
@@ -61,9 +57,6 @@ const generateHash = (payload, secret) => {
     .digest('hex')
 }
 
-/**
- * Main function to generate eGHL hash
- */
 const generateEghlHash = (argsData, encryptedData) => {
   const eghlData = getHashKeyData(argsData, encryptedData)
 
@@ -72,14 +65,10 @@ const generateEghlHash = (argsData, encryptedData) => {
     eghlData.merchantSecret
   )
 
-  // Remove secret before returning
   delete eghlData.merchantSecret
   delete eghlData.hashPayload
 
-  return {
-    hash,
-    eghlData
-  }
+  return { hash, eghlData }
 }
 
 module.exports = generateEghlHash
